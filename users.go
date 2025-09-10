@@ -16,7 +16,7 @@ type User struct {
 }
 
 func (cfg *apiConfig) usersHandler(w http.ResponseWriter, r *http.Request) {
-	type parameteres struct {
+	type parameters struct {
 		Email string `json:"email"`
 	}
 	type response struct {
@@ -24,7 +24,7 @@ func (cfg *apiConfig) usersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decoder := json.NewDecoder(r.Body)
-	params := parameteres{}
+	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
