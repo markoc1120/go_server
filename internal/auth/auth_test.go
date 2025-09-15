@@ -2,6 +2,9 @@ package auth
 
 import (
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestCheckPasswordHash(t *testing.T) {
@@ -54,6 +57,64 @@ func TestCheckPasswordHash(t *testing.T) {
 			err := CheckPasswordHash(tt.password, tt.hash)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckPasswordHash() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestJWTValidation(t *testing.T) {
+	correctSecretToken := "correctToken"
+	incorrectSecretToken := "incorrectToken"
+	userID := uuid.New()
+
+	tests := []struct {
+		name            string
+		secretToken     string
+		incorrectToken  string
+		userID          uuid.UUID
+		expiresIn       time.Duration
+		wantMakeErr     bool
+		wantValidateErr bool
+	}{
+		{
+			name:            "Correct JWT validation",
+			secretToken:     correctSecretToken,
+			incorrectToken:  correctSecretToken,
+			userID:          userID,
+			expiresIn:       time.Duration(30 * time.Hour),
+			wantMakeErr:     false,
+			wantValidateErr: false,
+		},
+		{
+			name:            "Incorrect JWT validation with wrong secretToken",
+			secretToken:     correctSecretToken,
+			incorrectToken:  incorrectSecretToken,
+			userID:          userID,
+			expiresIn:       time.Duration(30 * time.Hour),
+			wantMakeErr:     false,
+			wantValidateErr: true,
+		},
+		{
+			name:            "Expired JWT token validation",
+			secretToken:     correctSecretToken,
+			incorrectToken:  incorrectSecretToken,
+			userID:          userID,
+			expiresIn:       time.Duration(0),
+			wantMakeErr:     false,
+			wantValidateErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := MakeJWT(tt.userID, tt.secretToken, tt.expiresIn)
+			if (err != nil) != tt.wantMakeErr {
+				t.Errorf("MakeJWT() error = %v, wantErr %v", err, tt.wantMakeErr)
+			}
+
+			_, err = ValidateJWT(token, tt.incorrectToken)
+			if (err != nil) != tt.wantValidateErr {
+				t.Errorf("ValidateJWT() error = %v, wantErr %v", err, tt.wantValidateErr)
 			}
 		})
 	}

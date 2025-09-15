@@ -2,11 +2,18 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+)
+
+type TokenType string
+
+const (
+	TokenTypeAccess TokenType = "chirpy-access"
 )
 
 func HashPassword(password string) (string, error) {
@@ -21,13 +28,12 @@ func CheckPasswordHash(password, hash string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }
 
-// TODO: write tests for MakeJWT and ValidateJWT
 func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
 	currTime := time.Now().UTC()
 	token := jwt.NewWithClaims(
 		jwt.SigningMethodHS256,
 		jwt.RegisteredClaims{
-			Issuer:    "chirpy",
+			Issuer:    string(TokenTypeAccess),
 			IssuedAt:  jwt.NewNumericDate(currTime),
 			ExpiresAt: jwt.NewNumericDate(currTime.Add(expiresIn)),
 			Subject:   userID.String(),
@@ -36,10 +42,12 @@ func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (str
 	return token.SignedString([]byte(tokenSecret))
 }
 
+// TODO: write more tests for ValidateJWT, create errors which can be tested in the auth_test.go
 func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
+	claimStruct := jwt.RegisteredClaims{}
 	token, err := jwt.ParseWithClaims(
 		tokenString,
-		&jwt.RegisteredClaims{},
+		&claimStruct,
 		func(t *jwt.Token) (any, error) {
 			return []byte(tokenSecret), nil
 		},
@@ -49,8 +57,21 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 		return uuid.Nil, err
 	}
 
-	if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok {
-		return uuid.Parse(claims.Subject)
+	userIDString, err := token.Claims.GetSubject()
+	if err != nil {
+		return uuid.Nil, err
 	}
-	return uuid.Nil, errors.New("unknown claims type, cannot proceed")
+
+	issuer, err := token.Claims.GetIssuer()
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if issuer != string(TokenTypeAccess) {
+		return uuid.Nil, errors.New("Invalid issuer")
+	}
+	id, err := uuid.Parse(userIDString)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("Invalid user ID: %w", err)
+	}
+	return id, nil
 }
