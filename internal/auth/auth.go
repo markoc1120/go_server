@@ -3,6 +3,8 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -15,6 +17,18 @@ type TokenType string
 const (
 	TokenTypeAccess TokenType = "chirpy-access"
 )
+
+const (
+	MissingAuthorization = BearerTokenErr("no Authorization in the header")
+	EmptyToken           = BearerTokenErr("empty token")
+	WrongAuthorization   = BearerTokenErr("wrong format of Authorization in the header")
+)
+
+type BearerTokenErr string
+
+func (e BearerTokenErr) Error() string {
+	return string(e)
+}
 
 func HashPassword(password string) (string, error) {
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
@@ -74,4 +88,19 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 		return uuid.Nil, fmt.Errorf("Invalid user ID: %w", err)
 	}
 	return id, nil
+}
+
+func GetBearerToken(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", MissingAuthorization
+	}
+	if cutHeader, found := strings.CutPrefix(authHeader, "Bearer "); found {
+		token := strings.TrimSpace(cutHeader)
+		if token == "" {
+			return "", EmptyToken
+		}
+		return token, nil
+	}
+	return "", WrongAuthorization
 }
