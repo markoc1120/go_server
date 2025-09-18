@@ -6,18 +6,19 @@ import (
 	"time"
 
 	"github.com/markoc1120/go_server/internal/auth"
+	"github.com/markoc1120/go_server/internal/database"
 )
 
 type LoggedInUser struct {
 	User
-	Token string `json:"token"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
-		ExpiresInSeconds *int   `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	type response struct {
 		LoggedInUser
@@ -43,14 +44,25 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expiresIn := time.Hour
-	if params.ExpiresInSeconds != nil {
-		expiresIn = time.Duration(min(*params.ExpiresInSeconds, 3600)) * time.Second
+	accessToken, err := auth.MakeJWT(user.ID, cfg.secret, time.Hour)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error generating JWT accessToken", err)
+		return
 	}
 
-	accessToken, err := auth.MakeJWT(user.ID, cfg.secret, expiresIn)
+	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error generate JWT accessToken", err)
+		respondWithError(w, http.StatusInternalServerError, "Error generating refreshToken", err)
+		return
+	}
+	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(time.Hour * 24 * 60),
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't save refresh token", err)
+		return
 	}
 
 	respondWithJSON(w, http.StatusOK, response{
@@ -61,7 +73,8 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 				UpdatedAt: user.UpdatedAt,
 				Email:     user.Email,
 			},
-			Token: accessToken,
+			Token:        accessToken,
+			RefreshToken: refreshToken,
 		},
 	})
 }
