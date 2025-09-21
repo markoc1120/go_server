@@ -2,15 +2,19 @@ package main
 
 import (
 	"net/http"
+
+	"github.com/markoc1120/go_server/internal/response"
 )
 
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
-	if cfg.platform != "dev" {
-		respondWithError(w, http.StatusForbidden, "You can't do this, reset is only allowed in dev environment.", nil)
+	if cfg.config.Platform != "dev" {
+		response.WithError(w, http.StatusForbidden, "You can't do this, reset is only allowed in dev environment.", nil)
+		return
 	}
 	err := cfg.db.DeleteUsers(r.Context())
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't delete all users.", err)
+		response.WithError(w, http.StatusInternalServerError, "Couldn't delete all users.", err)
+		return
 	}
-	respondWithJSON(w, http.StatusOK, nil)
+	response.WithJSON(w, http.StatusOK, nil)
 }

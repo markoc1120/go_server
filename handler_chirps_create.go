@@ -6,48 +6,36 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/markoc1120/go_server/internal/auth"
 	"github.com/markoc1120/go_server/internal/database"
+	"github.com/markoc1120/go_server/internal/models"
+	"github.com/markoc1120/go_server/internal/response"
 )
 
-type Chirp struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Body      string    `json:"body"`
-	UserID    uuid.UUID `json:"user_id"`
-}
-
 func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request) {
-	type parameters struct {
-		Body string `json:"body"`
-	}
-
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error(), err)
+		response.WithError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-	userID, err := auth.ValidateJWT(token, cfg.secret)
+	userID, err := auth.ValidateJWT(token, cfg.config.Secret)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, err.Error(), err)
+		response.WithError(w, http.StatusUnauthorized, err.Error(), err)
 		return
 	}
 
 	decoder := json.NewDecoder(r.Body)
-	params := parameters{}
+	params := models.CreateChirpRequest{}
 	err = decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't decode params", err)
+		response.WithError(w, http.StatusInternalServerError, "Couldn't decode params", err)
 		return
 	}
 
 	cleanedBody, err := validateChirp(params.Body)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error(), err)
+		response.WithError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
@@ -55,10 +43,10 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request
 		UserID: userID,
 	})
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't create chirp", err)
+		response.WithError(w, http.StatusInternalServerError, "Couldn't create chirp", err)
 		return
 	}
-	respondWithJSON(w, http.StatusCreated, Chirp{
+	response.WithJSON(w, http.StatusCreated, models.Chirp{
 		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,

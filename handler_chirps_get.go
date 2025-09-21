@@ -5,18 +5,20 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/markoc1120/go_server/internal/models"
+	"github.com/markoc1120/go_server/internal/response"
 )
 
 func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Request) {
 	chirps, err := cfg.db.GetChirps(r.Context())
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve all instances from db", err)
+		response.WithError(w, http.StatusInternalServerError, "Couldn't retrieve all instances from db", err)
 		return
 	}
 
-	payload := []Chirp{}
+	payload := []models.Chirp{}
 	for _, chirp := range chirps {
-		payload = append(payload, Chirp{
+		payload = append(payload, models.Chirp{
 			ID:        chirp.ID,
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
@@ -24,26 +26,26 @@ func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Reque
 			UserID:    chirp.UserID,
 		})
 	}
-	respondWithJSON(w, http.StatusOK, payload)
+	response.WithJSON(w, http.StatusOK, payload)
 }
 
 func (cfg *apiConfig) handlerChirpsGet(w http.ResponseWriter, r *http.Request) {
 	query := r.PathValue("chirpID")
 	id, err := uuid.Parse(query)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Invalid chirp ID in the url", err)
+		response.WithError(w, http.StatusInternalServerError, "Invalid chirp ID in the url", err)
 		return
 	}
 	chirp, err := cfg.db.GetChirp(r.Context(), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			respondWithError(w, http.StatusNotFound, "chirp not found", nil)
+			response.WithError(w, http.StatusNotFound, "chirp not found", nil)
 			return
 		}
-		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve the single chirp instance from db", err)
+		response.WithError(w, http.StatusInternalServerError, "Couldn't retrieve the single chirp instance from db", err)
 		return
 	}
-	respondWithJSON(w, http.StatusOK, Chirp{
+	response.WithJSON(w, http.StatusOK, models.Chirp{
 		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
