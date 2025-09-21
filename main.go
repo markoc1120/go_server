@@ -41,7 +41,7 @@ func main() {
 	}
 
 	polkaAPIKey := os.Getenv("POLKA_KEY")
-	if secret == "" {
+	if polkaAPIKey == "" {
 		log.Fatal("POLKA_KEY must be set")
 	}
 

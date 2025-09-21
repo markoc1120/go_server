@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/markoc1120/go_server/internal/auth"
 	"github.com/markoc1120/go_server/internal/database"
+	"github.com/markoc1120/go_server/internal/validation"
 )
 
 type User struct {
@@ -35,9 +36,20 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if err := validation.ValidateEmail(params.Email); err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	if err := validation.ValidatePassword(params.Password); err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
 	passwordHash, err := auth.HashPassword(params.Password)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error during hashing password", err)
+		return
 	}
 	user, err := cfg.db.CreateUser(
 		r.Context(),

@@ -7,6 +7,7 @@ import (
 
 	"github.com/markoc1120/go_server/internal/auth"
 	"github.com/markoc1120/go_server/internal/database"
+	"github.com/markoc1120/go_server/internal/validation"
 )
 
 type LoggedInUser struct {
@@ -29,6 +30,16 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters", err)
+		return
+	}
+
+	if err := validation.ValidateEmail(params.Email); err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+
+	if params.Password == "" {
+		respondWithError(w, http.StatusBadRequest, "password is required", nil)
 		return
 	}
 
