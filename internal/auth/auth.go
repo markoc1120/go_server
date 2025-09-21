@@ -92,12 +92,12 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	return id, nil
 }
 
-func GetBearerToken(headers http.Header) (string, error) {
+func parseAuthorization(headers http.Header, key string) (string, error) {
 	authHeader := headers.Get("Authorization")
 	if authHeader == "" {
 		return "", MissingAuthorization
 	}
-	if cutHeader, found := strings.CutPrefix(authHeader, "Bearer "); found {
+	if cutHeader, found := strings.CutPrefix(authHeader, key); found {
 		token := strings.TrimSpace(cutHeader)
 		if token == "" {
 			return "", EmptyToken
@@ -105,6 +105,14 @@ func GetBearerToken(headers http.Header) (string, error) {
 		return token, nil
 	}
 	return "", WrongAuthorization
+}
+
+func GetBearerToken(headers http.Header) (string, error) {
+	return parseAuthorization(headers, "Bearer ")
+}
+
+func GetAPIKey(headers http.Header) (string, error) {
+	return parseAuthorization(headers, "ApiKey ")
 }
 
 func MakeRefreshToken() (string, error) {
