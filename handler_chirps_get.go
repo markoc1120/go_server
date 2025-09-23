@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/markoc1120/go_server/internal/database"
@@ -16,6 +17,13 @@ func getChirpInstances(ctx context.Context, userID *uuid.UUID, db *database.Quer
 		return db.GetChirpsByUserID(ctx, *userID)
 	}
 	return db.GetChirps(ctx)
+}
+
+func getSortedChirps(chirps []database.Chirp, sortType string) []database.Chirp {
+	if sortType == "desc" {
+		sort.Slice(chirps, func(i, j int) bool { return chirps[i].CreatedAt.After(chirps[j].CreatedAt) })
+	}
+	return chirps
 }
 
 func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Request) {
@@ -36,9 +44,11 @@ func (cfg *apiConfig) handlerChirpsRetrieve(w http.ResponseWriter, r *http.Reque
 		response.WithError(w, http.StatusInternalServerError, "Couldn't retrieve all instances from db", err)
 		return
 	}
+	sortType := r.URL.Query().Get("sort")
+	sortedChirps := getSortedChirps(chirps, sortType)
 
 	payload := []models.Chirp{}
-	for _, chirp := range chirps {
+	for _, chirp := range sortedChirps {
 		payload = append(payload, models.Chirp{
 			ID:        chirp.ID,
 			CreatedAt: chirp.CreatedAt,
